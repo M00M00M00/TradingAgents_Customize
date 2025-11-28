@@ -22,8 +22,10 @@ async def call_api(symbol: str, trade_date: str, model_key: Optional[str], stop_
     url = f"{api_base}/signal"
     payload = {"symbol": symbol, "trade_date": trade_date, "model": model_key, "stop_loss_pct": stop_loss_pct}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload, timeout=300) as resp:
+    # Remove request timeout to allow long-running analysis (Discord hard limit ~15 minutes)
+    timeout = aiohttp.ClientTimeout(total=None)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(url, json=payload) as resp:
             if resp.status != 200:
                 text = await resp.text()
                 raise RuntimeError(f"API error {resp.status}: {text}")
