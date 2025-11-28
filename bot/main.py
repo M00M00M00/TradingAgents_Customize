@@ -48,8 +48,48 @@ async def position_command(interaction: discord.Interaction, symbol: str, stop_l
     trade_date = dt.date.today().strftime("%Y-%m-%d")
 
     try:
-        result = await call_api(symbol, trade_date, model, stop_loss_pct)
-        await interaction.followup.send(result[:1800])
+        raw_summary = await call_api(symbol, trade_date, model, stop_loss_pct)
+
+        # Clean summary: drop trailing empty heading lines like "Lessons Learned ..."
+        lines = [ln.rstrip() for ln in raw_summary.splitlines()]
+        cleaned = []
+        for idx, ln in enumerate(lines):
+            lower_ln = ln.strip().lower()
+            is_heading_only = lower_ln.startswith(("lessons learned", "lessons", "risk management"))
+            next_nonempty = None
+            for j in range(idx + 1, len(lines)):
+                if lines[j].strip():
+                    next_nonempty = lines[j]
+                    break
+            if is_heading_only and (next_nonempty is None or not next_nonempty.strip()):
+                continue
+            cleaned.append(ln)
+        summary = "\n".join(cleaned).strip()
+
+        # Parse decision token if present in summary (pattern: "Final Decision: XYZ")
+        decision_token = "NEUTRAL"
+        for line in summary.splitlines():
+            if "Final Decision" in line:
+                decision_token = line.split(":")[-1].strip().upper()
+                break
+
+        color_map = {
+            "LONG": discord.Color.green(),
+            "SHORT": discord.Color.red(),
+            "NEUTRAL": discord.Color.light_grey(),
+        }
+        embed_color = color_map.get(decision_token, discord.Color.blurple())
+
+        embed = discord.Embed(
+            title=f"Final Decision: {decision_token}",
+            description=summary[:3900],  # embed description limit safety
+            color=embed_color,
+        )
+        embed.add_field(name="Symbol", value=symbol, inline=True)
+        embed.add_field(name="Model", value=model or f"default ({DEFAULT_MODEL_KEY})", inline=True)
+        embed.add_field(name="Stop Loss %", value=str(stop_loss_pct), inline=True)
+
+        await interaction.followup.send(embed=embed)
     except Exception as e:
         await interaction.followup.send(f"Error while generating decision: {e}")
 
