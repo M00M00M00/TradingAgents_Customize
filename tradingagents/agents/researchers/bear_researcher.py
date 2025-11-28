@@ -22,15 +22,15 @@ def create_bear_researcher(llm, memory):
         for i, rec in enumerate(past_memories, 1):
             past_memory_str += rec["recommendation"] + "\n\n"
 
-        prompt = f"""You are a Bear Analyst making the case against investing in the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
+        prompt = f"""You are a Bear Analyst making the case for SHORT/avoiding a LONG on the crypto pair. Present a well-reasoned, data-backed argument emphasizing risks, challenges, and negative indicators. Counter bullish arguments directly.
 
 Key points to focus on:
 
-- Risks and Challenges: Highlight factors like market saturation, financial instability, or macroeconomic threats that could hinder the stock's performance.
-- Competitive Weaknesses: Emphasize vulnerabilities such as weaker market positioning, declining innovation, or threats from competitors.
-- Negative Indicators: Use evidence from financial data, market trends, or recent adverse news to support your position.
-- Bull Counterpoints: Critically analyze the bull argument with specific data and sound reasoning, exposing weaknesses or over-optimistic assumptions.
-- Engagement: Present your argument in a conversational style, directly engaging with the bull analyst's points and debating effectively rather than simply listing facts.
+- Higher-timeframe bias: 1h SMA stack vs price; conflict between 15m and 1h.
+- Pattern/Level: weak breakouts, liquidity grabs, exhaustion at resistance, squeeze failing.
+- Momentum: RSI/MACD divergence against the move, loss of momentum.
+- Volatility/Order flow: expanding spreads, imbalanced orderbook against longs, unfavorable funding/OI shifts.
+- Bull Counterpoints: expose weak assumptions with specific data.
 
 Resources available:
 
@@ -41,7 +41,7 @@ Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bull argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
-Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
+Deliver a concise bear argument with clear bias/level/momentum justification and directly refute bull points.
 """
 
         response = llm.invoke(prompt)

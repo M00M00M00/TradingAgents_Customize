@@ -18,12 +18,14 @@ class SignalProcessor:
             full_signal: Complete trading signal text
 
         Returns:
-            Extracted decision (BUY, SELL, or HOLD)
+            Extracted decision (LONG, SHORT, or NEUTRAL)
         """
         messages = [
             (
                 "system",
-                "You are an efficient assistant designed to analyze paragraphs or financial reports provided by a group of analysts. Your task is to extract the investment decision: SELL, BUY, or HOLD. Provide only the extracted decision (SELL, BUY, or HOLD) as your output, without adding any additional text or information.",
+                "You are an efficient assistant designed to analyze a trading report. "
+                "Extract the position decision as one of: LONG, SHORT, NEUTRAL. "
+                "Return only one of these tokens with no extra text.",
             ),
             ("human", full_signal),
         ]

@@ -432,7 +432,7 @@ def get_user_selections():
     # Step 1: Ticker symbol
     console.print(
         create_question_box(
-            "Step 1: Ticker Symbol", "Enter the ticker symbol to analyze", "SPY"
+            "Step 1: Symbol", "Enter the crypto symbol (e.g., BTC/USDT)", "BTC/USDT"
         )
     )
     selected_ticker = get_ticker()

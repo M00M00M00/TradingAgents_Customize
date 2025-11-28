@@ -5,18 +5,19 @@ from tradingagents.dataflows.interface import route_to_vendor
 
 @tool
 def get_stock_data(
-    symbol: Annotated[str, "ticker symbol of the company"],
+    symbol: Annotated[str, "symbol of the crypto perp contract, e.g. BTC/USDT"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
+    timeframe: Annotated[str, "timeframe such as 15m or 1h"] = "15m",
 ) -> str:
     """
-    Retrieve stock price data (OHLCV) for a given ticker symbol.
-    Uses the configured core_stock_apis vendor.
+    Retrieve OHLCV data for a given crypto symbol from the configured vendor (Bybit via ccxt).
     Args:
-        symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
+        symbol (str): Perp symbol, e.g. BTC/USDT
         start_date (str): Start date in yyyy-mm-dd format
         end_date (str): End date in yyyy-mm-dd format
+        timeframe (str): CCXT timeframe (default 15m)
     Returns:
-        str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
+        str: A formatted CSV string containing OHLCV for the specified symbol/timeframe.
     """
-    return route_to_vendor("get_stock_data", symbol, start_date, end_date)
+    return route_to_vendor("get_stock_data", symbol, start_date, end_date, timeframe=timeframe)

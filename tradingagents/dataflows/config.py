@@ -11,7 +11,7 @@ def initialize_config():
     global _config, DATA_DIR
     if _config is None:
         _config = default_config.DEFAULT_CONFIG.copy()
-        DATA_DIR = _config["data_dir"]
+        DATA_DIR = _config.get("data_dir")
 
 
 def set_config(config: Dict):
@@ -20,7 +20,7 @@ def set_config(config: Dict):
     if _config is None:
         _config = default_config.DEFAULT_CONFIG.copy()
     _config.update(config)
-    DATA_DIR = _config["data_dir"]
+    DATA_DIR = _config.get("data_dir")
 
 
 def get_config() -> Dict:

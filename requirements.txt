@@ -24,3 +24,10 @@ rich
 questionary
 langchain_anthropic
 langchain-google-genai
+ccxt
+pytest
+discord.py
+python-dotenv
+fastapi
+uvicorn
+aiohttp

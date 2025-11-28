@@ -1,118 +1,90 @@
 from typing import Annotated
 
-# Import from vendor-specific modules
-from .local import get_YFin_data, get_finnhub_news, get_finnhub_company_insider_sentiment, get_finnhub_company_insider_transactions, get_simfin_balance_sheet, get_simfin_cashflow, get_simfin_income_statements, get_reddit_global_news, get_reddit_company_news
-from .y_finance import get_YFin_data_online, get_stock_stats_indicators_window, get_balance_sheet as get_yfinance_balance_sheet, get_cashflow as get_yfinance_cashflow, get_income_statement as get_yfinance_income_statement, get_insider_transactions as get_yfinance_insider_transactions
-from .google import get_google_news
-from .openai import get_stock_news_openai, get_global_news_openai, get_fundamentals_openai
-from .alpha_vantage import (
-    get_stock as get_alpha_vantage_stock,
-    get_indicator as get_alpha_vantage_indicator,
-    get_fundamentals as get_alpha_vantage_fundamentals,
-    get_balance_sheet as get_alpha_vantage_balance_sheet,
-    get_cashflow as get_alpha_vantage_cashflow,
-    get_income_statement as get_alpha_vantage_income_statement,
-    get_insider_transactions as get_alpha_vantage_insider_transactions,
-    get_news as get_alpha_vantage_news
+# Crypto data via Bybit (ccxt)
+from .ccxt_bybit import (
+    get_ohlcv_bybit,
+    get_orderbook_window,
+    get_funding_rate,
+    get_open_interest_change,
 )
-from .alpha_vantage_common import AlphaVantageRateLimitError
+from .crypto_indicators import compute_indicators, indicators_summary
 
 # Configuration and routing logic
 from .config import get_config
 
 # Tools organized by category
 TOOLS_CATEGORIES = {
-    "core_stock_apis": {
-        "description": "OHLCV stock price data",
-        "tools": [
-            "get_stock_data"
-        ]
+    "core_stock_apis": {  # Retain key to minimize downstream changes
+        "description": "Crypto OHLCV data (Bybit via ccxt)",
+        "tools": ["get_stock_data"],
     },
     "technical_indicators": {
-        "description": "Technical analysis indicators",
-        "tools": [
-            "get_indicators"
-        ]
+        "description": "Technical analysis indicators (crypto)",
+        "tools": ["get_indicators"],
     },
-    "fundamental_data": {
-        "description": "Company fundamentals",
-        "tools": [
-            "get_fundamentals",
-            "get_balance_sheet",
-            "get_cashflow",
-            "get_income_statement"
-        ]
+    "market_micro": {
+        "description": "Orderbook, funding, open interest context",
+        "tools": ["get_orderbook", "get_funding_rate", "get_open_interest_change"],
     },
-    "news_data": {
-        "description": "News (public/insiders, original/processed)",
-        "tools": [
-            "get_news",
-            "get_global_news",
-            "get_insider_sentiment",
-            "get_insider_transactions",
-        ]
-    }
 }
 
 VENDOR_LIST = [
-    "local",
-    "yfinance",
-    "openai",
-    "google"
+    "ccxt",
 ]
+
+
+def _ccxt_indicators(symbol: str, curr_date: str, look_back_days: int, timeframe: str = "15m") -> str:
+    """
+    Fetch OHLCV and compute indicator bundle. `indicator` argument is ignored to keep API stable.
+    """
+    # use the shorter window derived from look_back_days
+    from datetime import datetime, timedelta
+    end_date = curr_date
+    start_dt = datetime.strptime(curr_date, "%Y-%m-%d") - timedelta(days=look_back_days)
+    start_date = start_dt.strftime("%Y-%m-%d")
+
+    csv_data = get_ohlcv_bybit(symbol, start_date, end_date, timeframe=timeframe)
+    # Parse back to dataframe for indicators
+    df = None
+    try:
+        df = _csv_to_df(csv_data)
+        df = compute_indicators(df)
+    except Exception as e:
+        return f"# Failed to compute indicators for {symbol}: {e}"
+
+    return indicators_summary(df, tail=5)
+
+
+def _csv_to_df(csv_str: str):
+    import io
+    import pandas as pd
+
+    lines = [line for line in csv_str.splitlines() if not line.startswith("#")]
+    cleaned = "\n".join(lines)
+    if not cleaned.strip():
+        raise ValueError("No data to parse for indicators")
+    return pd.read_csv(io.StringIO(cleaned))
+
 
 # Mapping of methods to their vendor-specific implementations
 VENDOR_METHODS = {
     # core_stock_apis
     "get_stock_data": {
-        "alpha_vantage": get_alpha_vantage_stock,
-        "yfinance": get_YFin_data_online,
-        "local": get_YFin_data,
+        "ccxt": get_ohlcv_bybit,
     },
     # technical_indicators
     "get_indicators": {
-        "alpha_vantage": get_alpha_vantage_indicator,
-        "yfinance": get_stock_stats_indicators_window,
-        "local": get_stock_stats_indicators_window
+        "ccxt": _ccxt_indicators,
     },
-    # fundamental_data
-    "get_fundamentals": {
-        "alpha_vantage": get_alpha_vantage_fundamentals,
-        "openai": get_fundamentals_openai,
+    # extra crypto context (exposed via tools only if needed)
+    "get_orderbook": {
+        "ccxt": get_orderbook_window,
     },
-    "get_balance_sheet": {
-        "alpha_vantage": get_alpha_vantage_balance_sheet,
-        "yfinance": get_yfinance_balance_sheet,
-        "local": get_simfin_balance_sheet,
+    "get_funding_rate": {
+        "ccxt": get_funding_rate,
     },
-    "get_cashflow": {
-        "alpha_vantage": get_alpha_vantage_cashflow,
-        "yfinance": get_yfinance_cashflow,
-        "local": get_simfin_cashflow,
-    },
-    "get_income_statement": {
-        "alpha_vantage": get_alpha_vantage_income_statement,
-        "yfinance": get_yfinance_income_statement,
-        "local": get_simfin_income_statements,
-    },
-    # news_data
-    "get_news": {
-        "alpha_vantage": get_alpha_vantage_news,
-        "openai": get_stock_news_openai,
-        "google": get_google_news,
-        "local": [get_finnhub_news, get_reddit_company_news, get_google_news],
-    },
-    "get_global_news": {
-        "openai": get_global_news_openai,
-        "local": get_reddit_global_news
-    },
-    "get_insider_sentiment": {
-        "local": get_finnhub_company_insider_sentiment
-    },
-    "get_insider_transactions": {
-        "alpha_vantage": get_alpha_vantage_insider_transactions,
-        "yfinance": get_yfinance_insider_transactions,
-        "local": get_finnhub_company_insider_transactions,
+    "get_open_interest_change": {
+        "ccxt": get_open_interest_change,
     },
 }
 
@@ -202,13 +174,6 @@ def route_to_vendor(method: str, *args, **kwargs):
                 result = impl_func(*args, **kwargs)
                 vendor_results.append(result)
                 print(f"SUCCESS: {impl_func.__name__} from vendor '{vendor_name}' completed successfully")
-                    
-            except AlphaVantageRateLimitError as e:
-                if vendor == "alpha_vantage":
-                    print(f"RATE_LIMIT: Alpha Vantage rate limit exceeded, falling back to next available vendor")
-                    print(f"DEBUG: Rate limit details: {e}")
-                # Continue to next vendor for fallback
-                continue
             except Exception as e:
                 # Log error but continue with other implementations
                 print(f"FAILED: {impl_func.__name__} from vendor '{vendor_name}' failed: {e}")
