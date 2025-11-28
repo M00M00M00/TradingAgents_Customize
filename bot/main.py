@@ -67,29 +67,6 @@ async def position_command(interaction: discord.Interaction, symbol: str, stop_l
         await interaction.followup.send(f"Error while generating decision: {e}")
 
 
-async def main():
-    token = os.getenv("DISCORD_BOT_TOKEN")
-    if not token:
-        raise RuntimeError("DISCORD_BOT_TOKEN is not set in environment.")
-    await BOT.login(token)
-    await BOT.connect()
-
-
-@BOT.event
-async def on_ready():
-    try:
-        await TREE.sync()
-        print(f"Bot ready. Logged in as {BOT.user}")
-    except Exception as e:
-        print(f"Command tree sync failed: {e}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-
-
-# ---------- Helper formatting functions ----------
-
 def _clean_summary(raw: str) -> str:
     """Remove empty heading-only lines like 'Lessons Learned'."""
     lines = [ln.rstrip() for ln in raw.splitlines()]
@@ -175,3 +152,24 @@ def _split_sections(summary: str) -> dict:
     for k in sections:
         sections[k] = sections[k].strip()
     return sections
+
+
+async def main():
+    token = os.getenv("DISCORD_BOT_TOKEN")
+    if not token:
+        raise RuntimeError("DISCORD_BOT_TOKEN is not set in environment.")
+    await BOT.login(token)
+    await BOT.connect()
+
+
+@BOT.event
+async def on_ready():
+    try:
+        await TREE.sync()
+        print(f"Bot ready. Logged in as {BOT.user}")
+    except Exception as e:
+        print(f"Command tree sync failed: {e}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
