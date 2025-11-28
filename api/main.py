@@ -15,6 +15,7 @@ class SignalRequest(BaseModel):
     trade_date: str | None = Field(
         default=None, description="YYYY-MM-DD; defaults to today if not provided"
     )
+    stop_loss_pct: float = Field(default=0.5, description="Stop loss percent (e.g., 0.5 for 0.5%)")
     model: str | None = Field(
         default=None,
         description="LLM model key (gpt-5.1, gpt-5-mini, gpt-5-nano, o4-mini, gpt-4.1-mini)",
@@ -53,7 +54,7 @@ def create_app(graph_factory: Callable = default_graph_factory) -> FastAPI:
 
         try:
             graph = graph_factory(config)
-            final_state, decision_text = graph.propagate(req.symbol, trade_date)
+            final_state, decision_text = graph.propagate(req.symbol, trade_date, stop_loss_pct=req.stop_loss_pct)
             decision = graph.process_signal(decision_text)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Graph execution failed: {e}")

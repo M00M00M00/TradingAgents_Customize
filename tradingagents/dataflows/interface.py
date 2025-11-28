@@ -33,7 +33,7 @@ VENDOR_LIST = [
 ]
 
 
-def _ccxt_indicators(symbol: str, curr_date: str, look_back_days: int, timeframe: str = "15m") -> str:
+def _ccxt_indicators(symbol: str, indicator: str, curr_date: str, look_back_days: int, timeframe: str = "15m") -> str:
     """
     Fetch OHLCV and compute indicator bundle. `indicator` argument is ignored to keep API stable.
     """

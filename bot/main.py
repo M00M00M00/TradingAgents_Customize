@@ -17,10 +17,10 @@ BOT = discord.Client(intents=INTENTS)
 TREE = app_commands.CommandTree(BOT)
 
 
-async def call_api(symbol: str, trade_date: str, model_key: Optional[str]) -> str:
+async def call_api(symbol: str, trade_date: str, model_key: Optional[str], stop_loss_pct: float) -> str:
     api_base = os.getenv("API_BASE_URL", "http://127.0.0.1:8001")
     url = f"{api_base}/signal"
-    payload = {"symbol": symbol, "trade_date": trade_date, "model": model_key}
+    payload = {"symbol": symbol, "trade_date": trade_date, "model": model_key, "stop_loss_pct": stop_loss_pct}
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=payload, timeout=300) as resp:
@@ -38,13 +38,17 @@ async def call_api(symbol: str, trade_date: str, model_key: Optional[str]) -> st
 @app_commands.describe(
     symbol="Perp symbol, e.g. BTC/USDT",
     model=f"LLM model ({', '.join(ALLOWED_MODELS.keys())}), default {DEFAULT_MODEL_KEY}",
+    stop_loss_pct="Stop loss percent (e.g., 0.5 for 0.5%)"
 )
-async def position_command(interaction: discord.Interaction, symbol: str, model: Optional[str] = None):
+@app_commands.choices(
+    model=[app_commands.Choice(name=key, value=key) for key in ALLOWED_MODELS.keys()]
+)
+async def position_command(interaction: discord.Interaction, symbol: str, stop_loss_pct: float = 0.5, model: Optional[str] = None):
     await interaction.response.defer(thinking=True)
     trade_date = dt.date.today().strftime("%Y-%m-%d")
 
     try:
-        result = await call_api(symbol, trade_date, model)
+        result = await call_api(symbol, trade_date, model, stop_loss_pct)
         await interaction.followup.send(result[:1800])
     except Exception as e:
         await interaction.followup.send(f"Error while generating decision: {e}")

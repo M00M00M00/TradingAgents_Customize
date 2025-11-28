@@ -149,7 +149,7 @@ class DummyGraph:
     def __init__(self, selected_analysts=None, debug=False, config=None):
         pass
 
-    def propagate(self, symbol, trade_date):
+    def propagate(self, symbol, trade_date, stop_loss_pct=None):
         return (
             {
                 "investment_plan": "Bullish plan",
