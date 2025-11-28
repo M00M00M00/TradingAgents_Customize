@@ -50,44 +50,15 @@ async def position_command(interaction: discord.Interaction, symbol: str, stop_l
     try:
         raw_summary = await call_api(symbol, trade_date, model, stop_loss_pct)
 
-        # Clean summary: drop trailing empty heading lines like "Lessons Learned ..."
-        lines = [ln.rstrip() for ln in raw_summary.splitlines()]
-        cleaned = []
-        for idx, ln in enumerate(lines):
-            lower_ln = ln.strip().lower()
-            is_heading_only = lower_ln.startswith(("lessons learned", "lessons", "risk management"))
-            next_nonempty = None
-            for j in range(idx + 1, len(lines)):
-                if lines[j].strip():
-                    next_nonempty = lines[j]
-                    break
-            if is_heading_only and (next_nonempty is None or not next_nonempty.strip()):
-                continue
-            cleaned.append(ln)
-        summary = "\n".join(cleaned).strip()
-
-        # Parse decision token if present in summary (pattern: "Final Decision: XYZ")
-        decision_token = "NEUTRAL"
-        for line in summary.splitlines():
-            if "Final Decision" in line:
-                decision_token = line.split(":")[-1].strip().upper()
-                break
-
-        color_map = {
-            "LONG": discord.Color.green(),
-            "SHORT": discord.Color.red(),
-            "NEUTRAL": discord.Color.light_grey(),
-        }
-        embed_color = color_map.get(decision_token, discord.Color.blurple())
-
-        embed = discord.Embed(
-            title=f"Final Decision: {decision_token}",
-            description=summary[:3900],  # embed description limit safety
-            color=embed_color,
+        summary = _clean_summary(raw_summary)
+        decision_token = _extract_decision(summary)
+        embed = _build_embed(
+            summary=summary,
+            decision=decision_token,
+            symbol=symbol,
+            model=model or f"default ({DEFAULT_MODEL_KEY})",
+            stop_loss_pct=stop_loss_pct,
         )
-        embed.add_field(name="Symbol", value=symbol, inline=True)
-        embed.add_field(name="Model", value=model or f"default ({DEFAULT_MODEL_KEY})", inline=True)
-        embed.add_field(name="Stop Loss %", value=str(stop_loss_pct), inline=True)
 
         await interaction.followup.send(embed=embed)
     except Exception as e:
@@ -113,3 +84,92 @@ async def on_ready():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+# ---------- Helper formatting functions ----------
+
+def _clean_summary(raw: str) -> str:
+    """Remove empty heading-only lines like 'Lessons Learned'."""
+    lines = [ln.rstrip() for ln in raw.splitlines()]
+    cleaned = []
+    for idx, ln in enumerate(lines):
+        lower_ln = ln.strip().lower()
+        is_heading_only = lower_ln.startswith(
+            ("lessons learned", "lessons", "risk management")
+        )
+        next_nonempty = None
+        for j in range(idx + 1, len(lines)):
+            if lines[j].strip():
+                next_nonempty = lines[j]
+                break
+        if is_heading_only and (next_nonempty is None or not next_nonempty.strip()):
+            continue
+        cleaned.append(ln)
+    return "\n".join(cleaned).strip()
+
+
+def _extract_decision(summary: str) -> str:
+    decision_token = "NEUTRAL"
+    for line in summary.splitlines():
+        if "Final Decision" in line:
+            decision_token = line.split(":")[-1].strip().upper()
+            break
+    return decision_token
+
+
+def _build_embed(summary: str, decision: str, symbol: str, model: str, stop_loss_pct: float) -> discord.Embed:
+    color_map = {
+        "LONG": discord.Color.green(),
+        "SHORT": discord.Color.red(),
+        "NEUTRAL": discord.Color.light_grey(),
+    }
+    embed_color = color_map.get(decision, discord.Color.blurple())
+
+    sections = _split_sections(summary)
+
+    embed = discord.Embed(
+        title=f"Final Decision: {decision}",
+        description=sections.pop("Summary", "")[:800],
+        color=embed_color,
+    )
+    embed.add_field(name="Symbol", value=symbol, inline=True)
+    embed.add_field(name="Model", value=model, inline=True)
+    embed.add_field(name="Stop Loss %", value=str(stop_loss_pct), inline=True)
+
+    # Add key sections as fields with truncation
+    for key in ["Research Plan", "Trader Plan", "Risk Judge", "Strategic Actions"]:
+        if key in sections and sections[key].strip():
+            embed.add_field(
+                name=key,
+                value=sections[key].strip()[:1024],
+                inline=False,
+            )
+
+    return embed
+
+
+def _split_sections(summary: str) -> dict:
+    """
+    Split summary into sections based on known headings.
+    Returns dict with keys like Research Plan, Trader Plan, Risk Judge, Summary.
+    """
+    headings = ["Research Plan", "Trader Plan", "Risk Judge", "Strategic Actions"]
+    sections = {h: "" for h in headings}
+    sections["Summary"] = ""
+
+    current = "Summary"
+    for line in summary.splitlines():
+        stripped = line.strip()
+        if any(stripped.startswith(h) for h in headings):
+            for h in headings:
+                if stripped.startswith(h):
+                    current = h
+                    break
+            # skip the heading line itself
+            continue
+        sections[current] += line + "\n"
+
+    # trim
+    for k in sections:
+        sections[k] = sections[k].strip()
+    return sections
