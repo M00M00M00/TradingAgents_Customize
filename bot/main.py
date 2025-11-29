@@ -1,6 +1,7 @@
 import asyncio
 import datetime as dt
 import os
+import io
 from typing import Optional
 
 import aiohttp
@@ -62,7 +63,9 @@ async def position_command(interaction: discord.Interaction, symbol: str, stop_l
             stop_loss_pct=stop_loss_pct,
         )
 
-        await interaction.followup.send(embed=embed)
+        # Attach full analysis as a file to avoid Discord embed truncation limits
+        file = discord.File(io.BytesIO(raw_summary.encode("utf-8")), filename="analysis.txt")
+        await interaction.followup.send(embed=embed, file=file)
     except Exception as e:
         await interaction.followup.send(f"Error while generating decision: {e}")
 
@@ -76,6 +79,9 @@ def _clean_summary(raw: str) -> str:
         is_heading_only = lower_ln.startswith(
             ("lessons learned", "lessons", "risk management")
         )
+        # skip repeated "Final Decision" lines to reduce duplication
+        if lower_ln.startswith("final decision"):
+            continue
         next_nonempty = None
         for j in range(idx + 1, len(lines)):
             if lines[j].strip():
@@ -120,7 +126,7 @@ def _build_embed(summary: str, decision: str, symbol: str, model: str, stop_loss
         if key in sections and sections[key].strip():
             embed.add_field(
                 name=key,
-                value=sections[key].strip()[:1024],
+                value=sections[key].strip()[:900],  # keep under 1024 limit with buffer
                 inline=False,
             )
 
